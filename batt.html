@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <title>EBike Battery Planner</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body {
+      font-family: 'Prompt', sans-serif;
+      background: #f9fbfd;
+      padding: 20px;
+      max-width: 1000px;
+      margin: auto;
+    }
+
+    h2 {
+      color: #2c3e50;
+    }
+
+    label {
+      margin-top: 12px;
+      font-weight: bold;
+      display: block;
+    }
+
+    input, select {
+      width: 100%;
+      padding: 10px;
+      margin-top: 4px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      box-sizing: border-box;
+    }
+
+    button {
+      margin-top: 16px;
+      padding: 10px 16px;
+      background-color: #007bff;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background-color: #0056b3;
+    }
+
+    #result {
+      margin-top: 16px;
+      font-size: 1.1em;
+      color: #28a745;
+      line-height: 1.6;
+    }
+
+    svg {
+      width: 100%;
+      max-width: 100%;
+      border: 1px solid #ddd;
+      background: #fff;
+      margin-top: 20px;
+    }
+
+    @media (max-width: 600px) {
+      input, select {
+        font-size: 16px;
+      }
+
+      button {
+        width: 100%;
+      }
+    }
+  </style>
+</head>
+<body>
+
+<h2>🔋 EBike Battery & Range Calculator</h2>
+
+<label>ประเภทแบตเตอรี่:</label>
+<select id="batteryType">
+  <option value="liion">Li-ion (3.7V)</option>
+  <option value="lifepo4">LiFePO₄ (3.2V)</option>
+  <option value="lifepo4_high">LiFePO₄ High Voltage (3.6V)</option>
+  <option value="nimh">NiMH (1.2V)</option>
+  <option value="lipolymer">LiPo (3.7V)</option>
+  <option value="leadacid">Lead-Acid (2.0V)</option>
+</select>
+
+<label>แรงดันรวมที่ต้องการ (V):</label>
+<input type="number" id="totalVoltage" value="48">
+
+<label>ความจุรวมที่ต้องการ (Ah):</label>
+<input type="number" id="totalCapacity" value="15">
+
+<label>ความจุของเซลล์แต่ละก้อน (Ah):</label>
+<input type="number" id="cellCapacity" value="2.5">
+
+<label>ราคาต่อเซลล์ (บาท):</label>
+<input type="number" id="cellPrice" value="80">
+
+<label>กำลังของมอเตอร์ (Watt):</label>
+<input type="number" id="motorPower" value="500">
+
+<label>การใช้พลังงานเฉลี่ยต่อกิโลเมตร (Wh/km):</label>
+<input type="number" id="whPerKm" value="15">
+
+<button onclick="calculate()">คำนวณและวาดแผนผัง</button>
+
+<div id="result"></div>
+<svg id="batteryDiagram" viewBox="0 0 800 600" preserveAspectRatio="xMidYMid meet"></svg>
+
+<script>
+  const voltages = {
+    liion: 3.7,
+    lifepo4: 3.2,
+    lifepo4_high: 3.6,
+    nimh: 1.2,
+    lipolymer: 3.7,
+    leadacid: 2.0
+  };
+
+  function calculate() {
+    const type = document.getElementById("batteryType").value;
+    const V = parseFloat(document.getElementById("totalVoltage").value);
+    const A = parseFloat(document.getElementById("totalCapacity").value);
+    const Acell = parseFloat(document.getElementById("cellCapacity").value);
+    const price = parseFloat(document.getElementById("cellPrice").value);
+    const motorW = parseFloat(document.getElementById("motorPower").value);
+    const whPerKm = parseFloat(document.getElementById("whPerKm").value);
+    if (!V || !A || !Acell || !price || !motorW || !whPerKm) {
+      alert("กรุณากรอกข้อมูลให้ครบถ้วน");
+      return;
+    }
+
+    const Vcell = voltages[type];
+    const S = Math.ceil(V / Vcell);
+    const P = Math.ceil(A / Acell);
+    const total = S * P;
+    const cost = total * price;
+    const wh = V * A;
+    const hours = (wh / motorW).toFixed(2);
+    const km = (wh / whPerKm).toFixed(1);
+    const bms = `${S}S BMS (${(S * Vcell).toFixed(1)}V)`;
+
+    document.getElementById("result").innerHTML =
+      `• ต้องใช้แบตเตอรี่ <strong>${S}S × ${P}P</strong> = <strong>${total} เซลล์</strong><br>` +
+      `• แนะนำ: <strong>${bms}</strong><br>` +
+      `• พลังงานรวม: <strong>${wh} Wh</strong><br>` +
+      `• ใช้กับมอเตอร์ ${motorW}W ได้ประมาณ <strong>${hours} ชั่วโมง</strong><br>` +
+      `• ระยะทางประมาณ <strong>${km} กิโลเมตร</strong><br>` +
+      `• ราคาประมาณ: <strong>${cost.toLocaleString()} บาท</strong>`;
+
+    draw(S, P, Vcell);
+  }
+
+  function draw(S, P, Vcell) {
+    const svg = document.getElementById("batteryDiagram");
+    svg.innerHTML = "";
+    const W = 50, H = 25, G = 10;
+    const offsetX = 30, offsetY = 30;
+    const width = S * (W + G) + offsetX * 2;
+    const height = P * (H + G) + offsetY * 2;
+    svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
+
+    for (let r = 0; r < P; r++) {
+      for (let c = 0; c < S; c++) {
+        const x = offsetX + c * (W + G);
+        const y = offsetY + r * (H + G);
+
+        const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+        rect.setAttribute("x", x);
+        rect.setAttribute("y", y);
+        rect.setAttribute("width", W);
+        rect.setAttribute("height", H);
+        rect.setAttribute("rx", 5);
+        rect.setAttribute("ry", 5);
+        rect.setAttribute("fill", "#00aaff");
+        rect.setAttribute("stroke", "#003f5c");
+        svg.appendChild(rect);
+
+        const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+        text.setAttribute("x", x + W / 2);
+        text.setAttribute("y", y + H / 2 + 4);
+        text.setAttribute("text-anchor", "middle");
+        text.setAttribute("font-size", "10");
+        text.setAttribute("fill", "#fff");
+        text.textContent = `${Vcell.toFixed(1)}V`;
+        svg.appendChild(text);
+      }
+    }
+  }
+</script>
+
+</body>
+</html>
